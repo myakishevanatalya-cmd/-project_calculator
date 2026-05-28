@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Определение стоимости мероприятия (проекта)</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./src/ui/styles.css" />
+  </head>
+  <body>
+    <main class="page">
+      <section class="card" aria-labelledby="event-params-title">
+        <h1 id="event-params-title">
+          Определение стоимости мероприятия (проекта)
+        </h1>
+        <p class="card-subtitle">
+          Этот инструмент помогает быстро оценить экономику события: от
+          структуры затрат до сценариев маржинальности и точки безубыточности.
+          Заполните параметры, а калькулятор пересчитает результаты в реальном
+          времени.
+        </p>
+        <section class="intro-panel" aria-label="Быстрый старт">
+          <div class="intro-steps">
+            <article class="intro-step">
+              <h3>1. Параметры</h3>
+              <p>Укажите тип, формат, даты и сценарии участников.</p>
+            </article>
+            <article class="intro-step">
+              <h3>2. Затраты</h3>
+              <p>Добавьте статьи расходов и проверьте структуру бюджета.</p>
+            </article>
+            <article class="intro-step">
+              <h3>3. Решение</h3>
+              <p>Сравните сценарии, маржу и точку безубыточности.</p>
+            </article>
+          </div>
+          <div class="theme-switch" aria-label="Варианты палитры">
+            <button type="button" class="theme-btn is-active" data-theme="core">
+              Core
+            </button>
+            <button type="button" class="theme-btn" data-theme="sun">
+              Sun
+            </button>
+            <button type="button" class="theme-btn" data-theme="leaf">
+              Leaf
+            </button>
+            <button type="button" class="theme-btn" data-theme="board">
+              Board
+            </button>
+          </div>
+        </section>
+
+        <form id="event-params-form" novalidate>
+          <div class="field">
+            <label for="event-name">Название мероприятия <span>*</span></label>
+            <input
+              id="event-name"
+              name="event_name"
+              type="text"
+              required
+              autocomplete="off"
+            />
+            <p class="helper-text">Введите рабочее название мероприятия</p>
+            <p class="error-text" id="event-name-error"></p>
+          </div>
+
+          <div class="field">
+            <label for="event-type">Тип мероприятия <span>*</span></label>
+            <select id="event-type" name="event_type_id" required>
+              <option value="">Выберите тип</option>
+              <option value="open-house-day">День открытых дверей</option>
+              <option value="new-year-events">Новогодние мероприятия</option>
+              <option value="fairs">Ярмарки</option>
+              <option value="company-birthday">День рождения компании</option>
+              <option value="shor">ШОР</option>
+              <option value="online-courses">Онлайн-курсы</option>
+              <option value="retreats">Ретриты</option>
+              <option value="other">Другое</option>
+            </select>
+            <p class="helper-text">Выбор из локального справочника</p>
+            <p class="error-text" id="event-type-error"></p>
+          </div>
+
+          <div class="field">
+            <label for="event-format">Формат</label>
+            <select id="event-format" name="event_format">
+              <option value="offline">офлайн</option>
+              <option value="online">онлайн</option>
+              <option value="hybrid">гибрид</option>
+            </select>
+            <p class="helper-text">Формат проведения мероприятия</p>
+          </div>
+
+          <div class="field">
+            <label>Дата/период проведения <span>*</span></label>
+            <div class="date-range">
+              <input id="start-date" name="start_date" type="date" required />
+              <input id="end-date" name="end_date" type="date" required />
+            </div>
+            <p class="helper-text">Укажите дату или диапазон дат проведения</p>
+            <p class="error-text" id="date-range-error"></p>
+          </div>
+
+          <div class="field">
+            <label for="participants-min"
+              >Минимальное количество участников <span>*</span></label
+            >
+            <input
+              id="participants-min"
+              name="participants_min"
+              type="number"
+              min="1"
+              step="1"
+              required
+            />
+            <p class="helper-text">пессимистичный сценарий посещаемости</p>
+            <p class="error-text" id="participants-min-error"></p>
+          </div>
+
+          <div class="field">
+            <label for="participants-plan"
+              >Плановое количество участников <span>*</span></label
+            >
+            <input
+              id="participants-plan"
+              name="participants_plan"
+              type="number"
+              min="1"
+              step="1"
+              required
+            />
+            <p class="helper-text">основной рабочий сценарий</p>
+            <p class="error-text" id="participants-plan-error"></p>
+          </div>
+
+          <div class="field">
+            <label for="participants-max"
+              >Максимальное количество участников <span>*</span></label
+            >
+            <input
+              id="participants-max"
+              name="participants_max"
+              type="number"
+              min="1"
+              step="1"
+              required
+            />
+            <p class="helper-text">
+              оптимистичный сценарий при хорошем спросе
+            </p>
+            <p class="error-text" id="participants-max-error"></p>
+          </div>
+
+          <p class="warning-text" id="scenario-order-warning"></p>
+
+          <section class="cost-structure" aria-labelledby="cost-structure-title">
+            <h2 id="cost-structure-title">Структура затрат</h2>
+            <p class="helper-text">
+              Добавляйте статьи расходов. Тип статьи определяется автоматически
+              из справочника.
+            </p>
+            <div id="cost-lines" class="cost-lines">
+              <article class="cost-row">
+                <div class="row-head">
+                  <p class="row-title">Статья #1</p>
+                  <button type="button" class="btn-danger">Удалить</button>
+                </div>
+                <div class="row-grid">
+                  <div class="field">
+                    <label>Статья затрат *</label>
+                    <select class="cost-item-select" required>
+                      <option value="">Выберите статью</option>
+                      <option value="equipment">Оборудование</option>
+                      <option value="payroll">ФОТ</option>
+                      <option value="rent">Аренда</option>
+                      <option value="materials-decor-souvenirs">
+                        Материалы, декор, оформление, сувениры
+                      </option>
+                      <option value="marketing">Маркетинг</option>
+                      <option value="other-expenses">Прочие расходы</option>
+                      <option value="souvenirs-per-participant">
+                        Сувениры на участника
+                      </option>
+                      <option value="food-per-participant">
+                        Питание на участника
+                      </option>
+                    </select>
+                    <p class="helper-text cost-item-helper"></p>
+                    <p class="error-text cost-item-error"></p>
+                  </div>
+                  <div class="field">
+                    <label>Тип статьи</label>
+                    <input class="cost-item-type" type="text" readonly />
+                    <p class="helper-text">Определяется по справочнику</p>
+                    <p class="error-text"></p>
+                  </div>
+                  <div class="field">
+                    <label>Сумма *</label>
+                    <input
+                      class="cost-item-amount"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                    />
+                    <p class="helper-text cost-item-amount-helper">Укажите сумму</p>
+                    <p class="error-text cost-item-amount-error"></p>
+                  </div>
+                  <div class="field">
+                    <label class="comment-label">Комментарий</label>
+                    <input class="cost-item-comment" type="text" />
+                    <p class="helper-text cost-item-comment-helper">
+                      Комментарий необязателен
+                    </p>
+                    <p class="error-text cost-item-comment-error"></p>
+                  </div>
+                </div>
+              </article>
+            </div>
+            <p class="error-text" id="cost-structure-error"></p>
+            <div class="cost-actions">
+              <button type="button" id="add-cost-line-btn" class="btn-secondary">
+                Добавить статью
+              </button>
+            </div>
+          </section>
+
+          <section class="margin-block" aria-labelledby="margin-title">
+            <h2 id="margin-title">Маржа, налоги и комиссии</h2>
+            <div class="row-grid margin-grid">
+              <div class="field">
+                <label for="target-margin"
+                  >Целевая маржа, % <span>*</span></label
+                >
+                <input
+                  id="target-margin"
+                  name="target_margin"
+                  type="number"
+                  min="-100"
+                  step="0.01"
+                  required
+                />
+                <p class="helper-text">
+                  маржа на чистую выручку после налогов и комиссии
+                </p>
+                <p class="error-text" id="target-margin-error"></p>
+              </div>
+
+              <div class="field">
+                <label for="tax-percent">Налог, %</label>
+                <input
+                  id="tax-percent"
+                  name="tax_percent"
+                  type="number"
+                  readonly
+                />
+              </div>
+
+              <div class="field">
+                <label for="fee-percent">Комиссия, %</label>
+                <input
+                  id="fee-percent"
+                  name="fee_percent"
+                  type="number"
+                  readonly
+                />
+              </div>
+            </div>
+          </section>
+
+          <section class="results-block" aria-labelledby="results-title">
+            <h2 id="results-title">Результаты по сценариям</h2>
+            <div class="table-wrap">
+              <table class="results-table">
+                <thead>
+                  <tr>
+                    <th class="sticky-col">Сценарий</th>
+                    <th>Количество участников</th>
+                    <th class="key-header">Цена билета</th>
+                    <th>Выручка</th>
+                    <th>Переменные затраты</th>
+                    <th>Фиксированные затраты</th>
+                    <th>Полные затраты</th>
+                    <th class="key-header">Прибыль/убыток</th>
+                    <th class="key-header">Маржа, %</th>
+                    <th>Себестоимость на 1 участника</th>
+                    <th class="key-header">Статус</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr id="scenario-minimum-row">
+                    <td class="sticky-col">Минимум</td>
+                    <td data-key="participants">-</td>
+                    <td class="key-cell" data-key="ticketPrice">-</td>
+                    <td data-key="revenue">-</td>
+                    <td data-key="variableCosts">-</td>
+                    <td data-key="fixedCosts">-</td>
+                    <td data-key="totalCosts">-</td>
+                    <td class="key-cell" data-key="profit">-</td>
+                    <td class="key-cell" data-key="marginPercent">-</td>
+                    <td data-key="costPerParticipant">-</td>
+                    <td class="key-cell" data-key="status">-</td>
+                  </tr>
+                  <tr id="scenario-plan-row">
+                    <td class="sticky-col">План</td>
+                    <td data-key="participants">-</td>
+                    <td class="key-cell" data-key="ticketPrice">-</td>
+                    <td data-key="revenue">-</td>
+                    <td data-key="variableCosts">-</td>
+                    <td data-key="fixedCosts">-</td>
+                    <td data-key="totalCosts">-</td>
+                    <td class="key-cell" data-key="profit">-</td>
+                    <td class="key-cell" data-key="marginPercent">-</td>
+                    <td data-key="costPerParticipant">-</td>
+                    <td class="key-cell" data-key="status">-</td>
+                  </tr>
+                  <tr id="scenario-maximum-row">
+                    <td class="sticky-col">Максимум</td>
+                    <td data-key="participants">-</td>
+                    <td class="key-cell" data-key="ticketPrice">-</td>
+                    <td data-key="revenue">-</td>
+                    <td data-key="variableCosts">-</td>
+                    <td data-key="fixedCosts">-</td>
+                    <td data-key="totalCosts">-</td>
+                    <td class="key-cell" data-key="profit">-</td>
+                    <td class="key-cell" data-key="marginPercent">-</td>
+                    <td data-key="costPerParticipant">-</td>
+                    <td class="key-cell" data-key="status">-</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="warning-text" id="break-even-message">Точка безубыточности: -</p>
+          </section>
+
+          <div class="actions action-bar">
+            <button type="button" class="btn-secondary" id="clear-form-btn">
+              Очистить форму
+            </button>
+            <button type="button" class="btn-secondary" id="save-draft-btn">
+              Сохранить (заглушка)
+            </button>
+            <button type="button" class="btn-secondary" id="export-excel-btn">
+              Экспорт в Excel
+            </button>
+            <button type="button" class="btn-secondary" id="export-pdf-btn">
+              Экспорт в PDF
+            </button>
+            <button type="submit">Сохранить карточку</button>
+          </div>
+        </form>
+      </section>
+    </main>
+
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="./src/ui/app.js"></script>
+  </body>
+</html>

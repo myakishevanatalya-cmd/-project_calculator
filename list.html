@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Список расчетов мероприятий</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./src/ui/styles.css" />
+  </head>
+  <body>
+    <main class="page page-wide">
+      <section class="card" aria-labelledby="calc-list-title">
+        <div class="list-toolbar">
+          <div>
+            <h1 id="calc-list-title">Список расчетов</h1>
+            <p class="card-subtitle">
+              Все сохраненные расчеты мероприятий с фильтрацией и сортировкой.
+            </p>
+          </div>
+          <a class="link-btn" href="./index.html?mode=new">Создать новый расчет</a>
+        </div>
+
+        <section class="filters" aria-label="Фильтрация расчетов">
+          <div class="field">
+            <label for="filter-event-type">Тип мероприятия</label>
+            <select id="filter-event-type">
+              <option value="">Все типы</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="filter-status">Статус</label>
+            <select id="filter-status">
+              <option value="">Все статусы</option>
+              <option value="черновик">черновик</option>
+              <option value="утвержден">утвержден</option>
+            </select>
+          </div>
+        </section>
+
+        <div class="table-wrap">
+          <table class="results-table list-table">
+            <thead>
+              <tr>
+                <th>Название расчета/мероприятия</th>
+                <th>Тип мероприятия</th>
+                <th>
+                  <button class="sort-btn" type="button" data-sort-field="event_date">
+                    Дата/период проведения
+                  </button>
+                </th>
+                <th>Плановое количество участников</th>
+                <th>Цена билета (план)</th>
+                <th>
+                  <button class="sort-btn" type="button" data-sort-field="margin">
+                    Фактическая маржа (план), %
+                  </button>
+                </th>
+                <th>Статус</th>
+                <th>
+                  <button class="sort-btn" type="button" data-sort-field="created_at">
+                    Дата создания
+                  </button>
+                </th>
+                <th>Автор</th>
+              </tr>
+            </thead>
+            <tbody id="calculations-table-body"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <script type="module" src="./src/ui/calculations-list.js"></script>
+  </body>
+</html>
