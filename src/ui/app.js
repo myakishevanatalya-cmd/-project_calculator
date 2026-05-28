@@ -222,7 +222,64 @@ const scenarioRowMap = {
 
 const appState = {
   lastCalculation: null,
+  currentCalculationId: null,
 };
+
+const CALCULATIONS_STORAGE_KEY = "event_calculations_v1";
+
+function parseJsonSafe(value, fallbackValue) {
+  if (!value) {
+    return fallbackValue;
+  }
+  try {
+    return JSON.parse(value);
+  } catch (_error) {
+    return fallbackValue;
+  }
+}
+
+function readSavedCalculations() {
+  try {
+    const raw = window.localStorage.getItem(CALCULATIONS_STORAGE_KEY);
+    const parsed = parseJsonSafe(raw, []);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (_error) {
+    return [];
+  }
+}
+
+function writeSavedCalculations(items) {
+  try {
+    window.localStorage.setItem(CALCULATIONS_STORAGE_KEY, JSON.stringify(items));
+    return true;
+  } catch (_error) {
+    return false;
+  }
+}
+
+function getQueryCalculationId() {
+  try {
+    const url = new URL(window.location.href);
+    if (url.searchParams.get("mode") === "new") {
+      return null;
+    }
+    const id = url.searchParams.get("calculationId");
+    return id && id.trim().length > 0 ? id.trim() : null;
+  } catch (_error) {
+    return null;
+  }
+}
+
+function updateUrlCalculationId(calculationId) {
+  try {
+    const url = new URL(window.location.href);
+    url.searchParams.delete("mode");
+    url.searchParams.set("calculationId", calculationId);
+    window.history.replaceState({}, "", url.toString());
+  } catch (_error) {
+    // ignore URL update errors
+  }
+}
 
 const fieldConfigs = [
   {
@@ -555,6 +612,10 @@ function createCostRow(rowNumber) {
 }
 
 function wireCostRow(row) {
+  if (row.dataset.wired === "1") {
+    return;
+  }
+  row.dataset.wired = "1";
   const deleteButton = row.querySelector(".btn-danger");
   const costItemSelect = row.querySelector(".cost-item-select");
   const amountInput = row.querySelector(".cost-item-amount");
@@ -910,6 +971,15 @@ function resetFormState() {
   scenarioWarning.textContent = "";
   costStructureError.textContent = "";
   appState.lastCalculation = null;
+  appState.currentCalculationId = null;
+  try {
+    const url = new URL(window.location.href);
+    url.searchParams.delete("calculationId");
+    url.searchParams.set("mode", "new");
+    window.history.replaceState({}, "", url.toString());
+  } catch (_error) {
+    // ignore URL update errors
+  }
   resetResultsTable();
 }
 
@@ -1109,6 +1179,162 @@ function getCurrentReportData() {
     costLines,
     calculation: appState.lastCalculation,
   };
+}
+
+function normalizeStatusCode(value) {
+  const text = String(value || "").toLowerCase();
+  if (text.includes("утверж") || text.includes("approved")) {
+    return "approved";
+  }
+  return "draft";
+}
+
+function statusCodeToLabel(statusCode) {
+  return statusCode === "approved" ? "утвержден" : "черновик";
+}
+
+function buildCalculationDraftPayload(existingDraft) {
+  const reportData = getCurrentReportData();
+  if (!reportData.calculation) {
+    return null;
+  }
+
+  const nowIso = new Date().toISOString();
+  const draftId =
+    appState.currentCalculationId ||
+    (existingDraft && existingDraft.id) ||
+    `calc-${Date.now()}`;
+  const normalizedStatus = normalizeStatusCode(existingDraft?.status);
+  const planScenario = reportData.calculation.scenarios.plan;
+
+  return {
+    id: draftId,
+    title: reportData.event.name || "Новый расчет",
+    event_type_id: reportData.event.eventTypeId || "",
+    period_start: reportData.event.startDate || "",
+    period_end: reportData.event.endDate || "",
+    plan_participants:
+      Number.isInteger(reportData.participants.plan) && reportData.participants.plan > 0
+        ? reportData.participants.plan
+        : 0,
+    ticket_price_plan: planScenario ? Math.round(planScenario.ticketPrice) : 0,
+    margin_plan_percent: planScenario ? Math.round(planScenario.marginPercent) : 0,
+    status: statusCodeToLabel(normalizedStatus),
+    created_at: existingDraft?.created_at || nowIso,
+    updated_at: nowIso,
+    author: existingDraft?.author || "Пользователь",
+    event_format: reportData.event.format || "offline",
+    participants: reportData.participants,
+    financial_inputs: reportData.financialInputs,
+    cost_lines: reportData.costLines,
+    calculation_snapshot: reportData.calculation,
+  };
+}
+
+function saveCurrentDraft() {
+  if (!validateForm()) {
+    recalculateAndRender();
+    window.alert("Заполните обязательные поля перед сохранением.");
+    return;
+  }
+
+  recalculateAndRender();
+  const savedCalculations = readSavedCalculations();
+  const existingDraft = savedCalculations.find(
+    (item) => item.id === appState.currentCalculationId,
+  );
+  const payload = buildCalculationDraftPayload(existingDraft);
+  if (!payload) {
+    window.alert("Недостаточно данных для сохранения расчета.");
+    return;
+  }
+
+  const updated = [...savedCalculations];
+  const existingIndex = updated.findIndex((item) => item.id === payload.id);
+  if (existingIndex >= 0) {
+    updated[existingIndex] = payload;
+  } else {
+    updated.unshift(payload);
+  }
+
+  const success = writeSavedCalculations(updated);
+  if (!success) {
+    window.alert("Не удалось сохранить расчет в браузере.");
+    return;
+  }
+
+  appState.currentCalculationId = payload.id;
+  updateUrlCalculationId(payload.id);
+  window.alert("Расчет сохранен.");
+}
+
+function fillCostRows(costLines) {
+  costLinesContainer.innerHTML = "";
+  if (!Array.isArray(costLines) || costLines.length === 0) {
+    addCostRow();
+    return;
+  }
+
+  costLines.forEach((line, index) => {
+    const row = createCostRow(index + 1);
+    costLinesContainer.append(row);
+    const itemSelect = row.querySelector(".cost-item-select");
+    const amountInput = row.querySelector(".cost-item-amount");
+    const commentInput = row.querySelector(".cost-item-comment");
+    if (itemSelect) {
+      itemSelect.value = line.item_id || "";
+      refreshCostRowBySelectedItem(row);
+    }
+    if (amountInput) {
+      const numericAmount = Number(line.amount);
+      amountInput.value =
+        Number.isFinite(numericAmount) && numericAmount > 0
+          ? String(numericAmount)
+          : "";
+    }
+    if (commentInput) {
+      commentInput.value = line.comment || "";
+    }
+  });
+}
+
+function loadDraftFromQuery() {
+  const queryId = getQueryCalculationId();
+  if (!queryId) {
+    return;
+  }
+
+  const savedCalculations = readSavedCalculations();
+  const draft = savedCalculations.find((item) => item.id === queryId);
+  if (!draft) {
+    return;
+  }
+
+  appState.currentCalculationId = draft.id;
+  document.getElementById("event-name").value = draft.title || "";
+  document.getElementById("event-type").value = draft.event_type_id || "";
+  document.getElementById("event-format").value = draft.event_format || "offline";
+  document.getElementById("start-date").value = draft.period_start || "";
+  document.getElementById("end-date").value = draft.period_end || "";
+  document.getElementById("participants-min").value = String(
+    draft.participants?.minimum || "",
+  );
+  document.getElementById("participants-plan").value = String(
+    draft.participants?.plan || draft.plan_participants || "",
+  );
+  document.getElementById("participants-max").value = String(
+    draft.participants?.maximum || "",
+  );
+  document.getElementById("target-margin").value = String(
+    draft.financial_inputs?.targetMarginPercent ?? 20,
+  );
+  document.getElementById("tax-percent").value = String(
+    draft.financial_inputs?.taxPercent ?? TAX_PERCENT_DEFAULT,
+  );
+  document.getElementById("fee-percent").value = String(
+    draft.financial_inputs?.feePercent ?? FEE_PERCENT_DEFAULT,
+  );
+  fillCostRows(draft.cost_lines || []);
 }
 
 function ensureCalculationAvailableForExport(reportData) {
@@ -1734,7 +1960,7 @@ function initApp() {
 
   if (saveDraftButton) {
     saveDraftButton.addEventListener("click", () => {
-      window.alert("Сохранение будет подключено на этапе интеграции с бэкендом.");
+      saveCurrentDraft();
     });
   }
 
@@ -1754,22 +1980,22 @@ function initApp() {
 
   form.addEventListener("submit", (event) => {
     event.preventDefault();
-    validateForm();
-    recalculateAndRender();
+    saveCurrentDraft();
   });
 
   populateEventTypes();
   initThemeControls();
   populateDefaults();
+  loadDraftFromQuery();
   const existingRows = costLinesContainer.querySelectorAll(".cost-row");
-  if (existingRows.length > 0) {
-    existingRows.forEach((row) => {
-      wireCostRow(row);
-    });
-  } else {
+  if (existingRows.length === 0) {
     addCostRow();
   }
+  existingRows.forEach((row) => {
+    wireCostRow(row);
+  });
   renumberRows();
+  validateForm();
   recalculateAndRender();
 }
 

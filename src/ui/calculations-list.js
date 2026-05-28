@@ -1,6 +1,8 @@
 import { CALCULATIONS_MOCK } from "./calculations-list-data.js";
 import { EVENT_TYPES } from "./reference-data.js";
 
+const CALCULATIONS_STORAGE_KEY = "event_calculations_v1";
+
 const tableBody = document.getElementById("calculations-table-body");
 const filterEventType = document.getElementById("filter-event-type");
 const filterStatus = document.getElementById("filter-status");
@@ -14,7 +16,7 @@ const eventTypeById = EVENT_TYPES.reduce((acc, item) => {
 const state = {
   filter: {
     eventType: "",
-    status: "",
+    statusCode: "",
   },
   sort: {
     field: "created_at",
@@ -22,19 +24,75 @@ const state = {
   },
 };
 
+function parseJsonSafe(value, fallbackValue) {
+  if (!value) {
+    return fallbackValue;
+  }
+  try {
+    return JSON.parse(value);
+  } catch (_error) {
+    return fallbackValue;
+  }
+}
+
+function normalizeStatusCode(statusValue) {
+  const text = String(statusValue || "").toLowerCase();
+  if (text.includes("утверж") || text.includes("approved")) {
+    return "approved";
+  }
+  return "draft";
+}
+
+function statusCodeToLabel(statusCode) {
+  return statusCode === "approved" ? "утвержден" : "черновик";
+}
+
+function readSavedCalculations() {
+  try {
+    const raw = window.localStorage.getItem(CALCULATIONS_STORAGE_KEY);
+    const parsed = parseJsonSafe(raw, []);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (_error) {
+    return [];
+  }
+}
+
+function getAllCalculations() {
+  const saved = readSavedCalculations();
+  const byId = new Map();
+
+  CALCULATIONS_MOCK.forEach((item) => {
+    byId.set(item.id, item);
+  });
+  saved.forEach((item) => {
+    byId.set(item.id, item);
+  });
+
+  return [...byId.values()].map((item) => ({
+    ...item,
+    statusCode: normalizeStatusCode(item.status),
+  }));
+}
+
 function formatMoney(value) {
-  return `${value.toLocaleString("ru-RU", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
+  return `${Number(value || 0).toLocaleString("ru-RU", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
   })} ₽`;
 }
 
 function formatDate(isoDate) {
   const date = new Date(isoDate);
+  if (Number.isNaN(date.getTime())) {
+    return "-";
+  }
   return date.toLocaleDateString("ru-RU");
 }
 
 function formatDatePeriod(startDate, endDate) {
+  if (!startDate || !endDate) {
+    return "-";
+  }
   if (startDate === endDate) {
     return formatDate(startDate);
   }
@@ -52,8 +110,8 @@ function sortItems(items, sortField, direction) {
       left = Date.parse(a.period_start);
       right = Date.parse(b.period_start);
     } else if (sortField === "margin") {
-      left = a.margin_plan_percent;
-      right = b.margin_plan_percent;
+      left = Number(a.margin_plan_percent || 0);
+      right = Number(b.margin_plan_percent || 0);
     } else if (sortField === "created_at") {
       left = Date.parse(a.created_at);
       right = Date.parse(b.created_at);
@@ -71,18 +129,20 @@ function filterItems(items, filterModel) {
   return items.filter((item) => {
     const matchType =
       !filterModel.eventType || item.event_type_id === filterModel.eventType;
-    const matchStatus = !filterModel.status || item.status === filterModel.status;
+    const matchStatus =
+      !filterModel.statusCode || item.statusCode === filterModel.statusCode;
     return matchType && matchStatus;
   });
 }
 
 function buildViewItems() {
-  const filtered = filterItems(CALCULATIONS_MOCK, state.filter);
+  const allItems = getAllCalculations();
+  const filtered = filterItems(allItems, state.filter);
   return sortItems(filtered, state.sort.field, state.sort.direction);
 }
 
-function rowStatusClass(status) {
-  if (status === "утвержден") {
+function rowStatusClass(statusCode) {
+  if (statusCode === "approved") {
     return "status-profit";
   }
   return "status-breakeven";
@@ -107,21 +167,20 @@ function renderTable() {
     row.className = "list-row-clickable";
     row.tabIndex = 0;
     row.setAttribute("role", "button");
-    row.setAttribute("aria-label", `Открыть расчет ${item.title}`);
+    row.setAttribute("aria-label", `Открыть расчет ${item.title || "без названия"}`);
 
     row.innerHTML = `
-      <td>${item.title}</td>
-      <td>${eventTypeById[item.event_type_id] || item.event_type_id}</td>
+      <td>${item.title || "-"}</td>
+      <td>${eventTypeById[item.event_type_id] || "-"}</td>
       <td>${formatDatePeriod(item.period_start, item.period_end)}</td>
-      <td>${item.plan_participants}</td>
+      <td>${Number(item.plan_participants || 0)}</td>
       <td>${formatMoney(item.ticket_price_plan)}</td>
-      <td class="${marginClass(item.margin_plan_percent)}">${item.margin_plan_percent.toLocaleString("ru-RU", {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      })}%</td>
-      <td class="${rowStatusClass(item.status)}">${item.status}</td>
+      <td class="${marginClass(Number(item.margin_plan_percent || 0))}">${Math.round(
+        Number(item.margin_plan_percent || 0),
+      )}%</td>
+      <td class="${rowStatusClass(item.statusCode)}">${statusCodeToLabel(item.statusCode)}</td>
       <td>${formatDate(item.created_at)}</td>
-      <td>${item.author}</td>
+      <td>${item.author || "-"}</td>
     `;
 
     const openCalculator = () => {
@@ -149,6 +208,23 @@ function fillEventTypeFilter() {
   });
 }
 
+function fillStatusFilter() {
+  if (!filterStatus) {
+    return;
+  }
+  filterStatus.innerHTML = "";
+  [
+    { value: "", label: "Все статусы" },
+    { value: "draft", label: "черновик" },
+    { value: "approved", label: "утвержден" },
+  ].forEach((item) => {
+    const option = document.createElement("option");
+    option.value = item.value;
+    option.textContent = item.label;
+    filterStatus.append(option);
+  });
+}
+
 function updateSortButtonLabels() {
   sortButtons.forEach((button) => {
     const baseLabel = button.textContent.replace(/ ↑| ↓/g, "");
@@ -167,7 +243,7 @@ filterEventType.addEventListener("change", () => {
 });
 
 filterStatus.addEventListener("change", () => {
-  state.filter.status = filterStatus.value;
+  state.filter.statusCode = filterStatus.value;
   renderTable();
 });
 
@@ -186,5 +262,6 @@ sortButtons.forEach((button) => {
 });
 
 fillEventTypeFilter();
+fillStatusFilter();
 updateSortButtonLabels();
 renderTable();
